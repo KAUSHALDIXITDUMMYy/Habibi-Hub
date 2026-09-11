@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LXP Hub — Ops Dashboard</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="logo">LX</div>
+    <div>
+      <h1>LXP Hub</h1>
+      <p class="sub">Staffing operations — PopBookings · TrustedHerd · IS-Demos</p>
+    </div>
+  </div>
+  <nav id="nav">
+    <button data-action="nav" data-view="dashboard" class="active">Dashboard</button>
+    <button data-action="nav" data-view="events">Events</button>
+    <button data-action="nav" data-view="talent">Talent</button>
+    <button data-action="nav" data-view="alerts">Alerts <span id="alert-badge" class="badge hidden"></span></button>
+  </nav>
+</header>
+
+<main id="main"><p class="muted pad">Loading…</p></main>
+
+<footer>
+  LXP Hub MVP — walking skeleton. The <code>/dev</code> API actions stand in for the real
+  IS-Demos watermark poller until the Integration lane lands (§4.3 of the design doc).
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

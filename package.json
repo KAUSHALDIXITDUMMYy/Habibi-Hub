@@ -1,0 +1,18 @@
+{
+  "name": "habibi-hub",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "LXP Hub — MVP walking skeleton: candidate pipeline state machine, internal /hub/v1 API, stub platform integrations, ops dashboard",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "reseed": "node server/reseed.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

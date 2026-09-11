@@ -1,0 +1,13 @@
+# Dependencies
+node_modules/
+
+# Runtime data (JSON store is rebuilt from seed via `npm run reseed`)
+data/
+
+# Environment / secrets
+.env
+.env.*
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
