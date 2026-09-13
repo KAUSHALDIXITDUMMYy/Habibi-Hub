@@ -101,7 +101,21 @@ export function canTransition(fromStatus: ApplicationStatus, toStatus: Applicati
  * Executes a pipeline status transition atomically within a database transaction.
  */
 export async function transitionApplication(
-  prisma: PrismaClient | Prisma.TransactionClient,
+  client: PrismaClient | Prisma.TransactionClient,
+  applicationId: number,
+  toStatus: ApplicationStatus,
+  options: TransitionOptions = {}
+) {
+  if ('$transaction' in client) {
+    return (client as PrismaClient).$transaction((tx) =>
+      executeTransition(tx, applicationId, toStatus, options)
+    );
+  }
+  return executeTransition(client, applicationId, toStatus, options);
+}
+
+async function executeTransition(
+  tx: Prisma.TransactionClient,
   applicationId: number,
   toStatus: ApplicationStatus,
   options: TransitionOptions = {}
@@ -109,7 +123,7 @@ export async function transitionApplication(
   const actor = options.actor || 'system';
   const note = options.note || '';
 
-  const application = await prisma.application.findUnique({
+  const application = await tx.application.findUnique({
     where: { applicationId },
     include: { position: true, talent: true, event: true }
   });
@@ -139,7 +153,7 @@ export async function transitionApplication(
   const effect = POSITION_EFFECT[toStatus];
 
   // Perform atomic updates in transaction
-  const updatedApplication = await prisma.application.update({
+  const updatedApplication = await tx.application.update({
     where: { applicationId },
     data: {
       status: toStatus,
@@ -154,7 +168,7 @@ export async function transitionApplication(
 
   // Update associated Position slot state if applicable
   if (effect && application.positionId) {
-    await prisma.position.update({
+    await tx.position.update({
       where: { positionId: application.positionId },
       data: {
         status: effect,
