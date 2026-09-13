@@ -12,7 +12,12 @@
     "dev": "node --watch server/index.js",
     "dev:ts": "tsx watch server/index.js",
     "build": "tsc",
-    "reseed": "node server/reseed.js"
+    "db:seed": "prisma db seed",
+    "db:import-talent": "tsx src/scripts/importHistoricalTalent.ts",
+    "reseed": "prisma migrate reset --force"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "5.22.0",
