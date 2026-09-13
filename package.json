@@ -12,6 +12,7 @@
     "dev": "node --watch server/index.js",
     "dev:ts": "tsx watch server/index.js",
     "build": "tsc",
+    "test": "vitest run",
     "db:seed": "prisma db seed",
     "db:import-talent": "tsx src/scripts/importHistoricalTalent.ts",
     "reseed": "prisma migrate reset --force"
@@ -33,6 +34,7 @@
     "@types/node": "^26.5.1",
     "prisma": "5.22.0",
     "tsx": "^4.23.13",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.0"
   }
 }

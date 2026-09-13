@@ -122,7 +122,13 @@ export async function transitionApplication(
 
   // Idempotent guard
   if (fromStatus === toStatus) {
-    return application;
+    return {
+      application,
+      fromStatus,
+      toStatus,
+      actor,
+      note
+    };
   }
 
   // Validate transition legality
