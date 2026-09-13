@@ -1,0 +1,201 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Client {
+  companyId   Int     @id @default(autoincrement()) @map("company_id")
+  companyName String  @map("company_name")
+  events      Event[]
+
+  @@map("clients")
+}
+
+model Event {
+  eventId           Int               @id @default(autoincrement()) @map("event_id")
+  companyId         Int               @map("company_id")
+  program           String
+  siteNumber        String            @map("site_number")
+  address           String
+  city              String
+  state             String
+  zip               String
+  eventDate         DateTime          @map("event_date") @db.Date
+  startTime         String            @map("start_time")
+  endTime           String            @map("end_time")
+  payRate           Decimal           @map("pay_rate") @db.Decimal(10, 2)
+  positionsRequired Int               @map("positions_required")
+  requirements      String?
+  dressCode         String?           @map("dress_code")
+  instructions      String?
+  jobCancelled      Boolean           @default(false) @map("job_cancelled")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  client            Client            @relation(fields: [companyId], references: [companyId])
+  positions         Position[]
+  applications      Application[]
+  platformMappings  PlatformMapping[]
+  notifications     Notification[]
+
+  @@map("events")
+}
+
+model Position {
+  positionId       Int          @id @default(autoincrement()) @map("position_id")
+  eventId          Int          @map("event_id")
+  slotNumber       Int          @map("slot_number")
+  status           String       @default("Open")
+  assignedTalentId Int?         @map("assigned_talent_id")
+
+  event            Event        @relation(fields: [eventId], references: [eventId], onDelete: Cascade)
+  assignedTalent   Talent?      @relation(fields: [assignedTalentId], references: [talentId])
+  applications     Application[]
+  booking          Booking?
+
+  @@map("positions")
+}
+
+model Talent {
+  talentId           Int                @id @default(autoincrement()) @map("talent_id")
+  firstName          String             @map("first_name")
+  lastName           String             @map("last_name")
+  email              String             @unique
+  phone              String             @unique
+  homeMarket         String?            @map("home_market")
+  latitude           Decimal?           @db.Decimal(10, 7)
+  longitude          Decimal?           @db.Decimal(10, 7)
+  source             String?
+  pbProfileUrl       String?            @map("pb_profile_url")
+  thProfileUrl       String?            @map("th_profile_url")
+  isDemosStaffId     Int?               @map("is_demos_staff_id")
+  noShowCount        Int                @default(0) @map("no_show_count")
+  completedJobsCount Int                @default(0) @map("completed_jobs_count")
+  notes              String?
+  lastContactedAt    DateTime?          @map("last_contacted_at")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  positions          Position[]
+  applications       Application[]
+  bookings           Booking[]
+  communicationLogs  CommunicationLog[]
+  notifications      Notification[]
+
+  @@map("talent")
+}
+
+model Application {
+  applicationId         Int      @id @default(autoincrement()) @map("application_id")
+  eventId               Int      @map("event_id")
+  positionId            Int      @map("position_id")
+  talentId              Int      @map("talent_id")
+  platformSource        String   @map("platform_source")
+  externalApplicationId String?  @map("external_application_id")
+  status                String   @default("Applied")
+  appliedAt             DateTime @default(now()) @map("applied_at")
+  statusChangedAt       DateTime @default(now()) @updatedAt @map("status_changed_at")
+
+  event                 Event    @relation(fields: [eventId], references: [eventId], onDelete: Cascade)
+  position              Position @relation(fields: [positionId], references: [positionId], onDelete: Cascade)
+  talent                Talent   @relation(fields: [talentId], references: [talentId], onDelete: Cascade)
+
+  @@map("applications")
+}
+
+model Booking {
+  bookingId                Int                @id @default(autoincrement()) @map("booking_id")
+  positionId               Int                @unique @map("position_id")
+  talentId                 Int                @map("talent_id")
+  isDemosShiftId           Int?               @map("is_demos_shift_id")
+  externalBookingId        String?            @map("external_booking_id")
+  status                   String             @default("Confirmed")
+  paymentAgreementRequired Boolean            @default(false) @map("payment_agreement_required")
+  paymentAgreementAccepted Boolean            @default(false) @map("payment_agreement_accepted")
+  confirmedAt              DateTime           @default(now()) @map("confirmed_at")
+
+  position                 Position           @relation(fields: [positionId], references: [positionId], onDelete: Cascade)
+  talent                   Talent             @relation(fields: [talentId], references: [talentId], onDelete: Cascade)
+  confirmationEmails       ConfirmationEmail[]
+
+  @@map("bookings")
+}
+
+model PlatformMapping {
+  id           Int      @id @default(autoincrement())
+  eventId      Int      @map("event_id")
+  platform     String   // isdemos | popbookings | trustedherd
+  externalId   String?  @map("external_id")
+  postStatus   String   @default("Pending") @map("post_status") // Posted | Failed | Pending
+  lastSyncedAt DateTime @default(now()) @updatedAt @map("last_synced_at")
+
+  event        Event    @relation(fields: [eventId], references: [eventId], onDelete: Cascade)
+
+  @@unique([eventId, platform])
+  @@map("platform_mappings")
+}
+
+model ConfirmationEmail {
+  emailId        Int      @id @default(autoincrement()) @map("email_id")
+  bookingId      Int      @map("booking_id")
+  sentAt         DateTime @default(now()) @map("sent_at")
+  deliveryStatus String   @default("Sent") @map("delivery_status")
+
+  booking        Booking  @relation(fields: [bookingId], references: [bookingId], onDelete: Cascade)
+
+  @@map("confirmation_emails")
+}
+
+model CommunicationLog {
+  logId      Int      @id @default(autoincrement()) @map("log_id")
+  talentId   Int      @map("talent_id")
+  channel    String   // Call | SMS | Email
+  direction  String   // Inbound | Outbound
+  content    String
+  timestamp  DateTime @default(now())
+  teamMember String?  @map("team_member")
+
+  talent     Talent   @relation(fields: [talentId], references: [talentId], onDelete: Cascade)
+
+  @@map("communication_logs")
+}
+
+model Notification {
+  notificationId     Int      @id @default(autoincrement()) @map("notification_id")
+  type               String
+  severity           String   // Low | Medium | High | Critical
+  eventId            Int?     @map("event_id")
+  talentId           Int?     @map("talent_id")
+  timestamp          DateTime @default(now())
+  assignedTeamMember String?  @map("assigned_team_member")
+  resolved           Boolean  @default(false)
+  requiredAction     String?  @map("required_action")
+
+  event              Event?   @relation(fields: [eventId], references: [eventId], onDelete: SetNull)
+  talent             Talent?  @relation(fields: [talentId], references: [talentId], onDelete: SetNull)
+
+  @@map("notifications")
+}
+
+model TeamMember {
+  userId      Int     @id @default(autoincrement()) @map("user_id")
+  name        String
+  email       String  @unique
+  role        String  @default("Ops") // Ops | Admin
+  permissions Json?
+
+  @@map("team_members")
+}
+
+model PlatformConfig {
+  platform  String   @id // isdemos | popbookings | trustedherd
+  apiKeyRef String?  @map("api_key_ref")
+  baseUrl   String?  @map("base_url")
+  scopes    Json?
+
+  @@map("platform_configs")
+}
