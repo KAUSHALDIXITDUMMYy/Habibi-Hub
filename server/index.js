@@ -5,14 +5,21 @@ import { loadDb } from './db.js';
 import { registerEngine } from './notifications.js';
 import { api } from './routes.js';
 
+import swaggerUi from 'swagger-ui-express';
+import YAML from 'yamljs';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT ?? 3000);
+const openapiDocument = YAML.load(path.join(__dirname, '..', 'docs', 'openapi.yaml'));
 
 loadDb();          // build/seed the store on boot
 registerEngine();  // notification engine subscribes to state-machine transitions
 
 const app = express();
 app.use(express.json());
+
+// Swagger API Documentation
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiDocument));
 
 // Internal Hub API (design doc §5.1)
 app.use('/hub/v1', api);
@@ -30,4 +37,5 @@ app.use((err, _req, res, _next) => {
 app.listen(PORT, () => {
   console.log(`LXP Hub MVP running → http://localhost:${PORT}`);
   console.log(`API base: http://localhost:${PORT}/hub/v1 — try GET /hub/v1/dashboard/summary`);
+  console.log(`OpenAPI Specs & Swagger UI → http://localhost:${PORT}/docs`);
 });

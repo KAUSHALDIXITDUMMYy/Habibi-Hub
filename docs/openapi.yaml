@@ -1,0 +1,1116 @@
+openapi: 3.0.3
+info:
+  title: LXP Hub Internal API
+  description: Contract-first REST API specification for the LXP Hub (`habibi-hub`). Manages events, positions, talent, application state machine pipeline, bookings, notifications, and platform configurations.
+  version: 1.0.0
+servers:
+  - url: /hub/v1
+    description: Local / Staging API Server Base
+
+paths:
+  /auth/login:
+    post:
+      summary: Team member login
+      operationId: login
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: ops@lxphub.com
+                password:
+                  type: string
+                  example: securepassword123
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/TeamMember'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /events:
+    get:
+      summary: List events
+      description: Returns a paginated list of events, filterable by status, date range, or client.
+      operationId: listEvents
+      tags:
+        - Events
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+          example: Active
+        - name: clientId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: startDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: A list of events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Event'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+
+    post:
+      summary: Create event
+      description: Creates a new event and automatically initializes required position slots.
+      operationId: createEvent
+      tags:
+        - Events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - companyId
+                - program
+                - siteNumber
+                - address
+                - city
+                - state
+                - zip
+                - eventDate
+                - startTime
+                - endTime
+                - payRate
+                - positionsRequired
+              properties:
+                companyId:
+                  type: integer
+                program:
+                  type: string
+                  example: Brand Demo Campaign
+                siteNumber:
+                  type: string
+                  example: ST-1004
+                address:
+                  type: string
+                  example: 123 Main St
+                city:
+                  type: string
+                  example: Austin
+                state:
+                  type: string
+                  example: TX
+                zip:
+                  type: string
+                  example: "78701"
+                eventDate:
+                  type: string
+                  format: date
+                  example: "2026-10-15"
+                startTime:
+                  type: string
+                  example: "10:00 AM"
+                endTime:
+                  type: string
+                  example: "04:00 PM"
+                payRate:
+                  type: number
+                  example: 28.50
+                positionsRequired:
+                  type: integer
+                  example: 2
+                requirements:
+                  type: string
+                dressCode:
+                  type: string
+                instructions:
+                  type: string
+      responses:
+        '201':
+          description: Event created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+
+  /events/{id}:
+    get:
+      summary: Get event details
+      description: Returns detailed event information including positions and calculated staffing percentage.
+      operationId: getEventById
+      tags:
+        - Events
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Event detail
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Event'
+                  - type: object
+                    properties:
+                      staffingPercentage:
+                        type: number
+                        example: 50.0
+                      positions:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Position'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+
+    put:
+      summary: Update event
+      description: Update core fields of an existing event.
+      operationId: updateEvent
+      tags:
+        - Events
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                program:
+                  type: string
+                address:
+                  type: string
+                city:
+                  type: string
+                state:
+                  type: string
+                zip:
+                  type: string
+                eventDate:
+                  type: string
+                  format: date
+                startTime:
+                  type: string
+                endTime:
+                  type: string
+                payRate:
+                  type: number
+                positionsRequired:
+                  type: integer
+                requirements:
+                  type: string
+                dressCode:
+                  type: string
+                instructions:
+                  type: string
+      responses:
+        '200':
+          description: Event updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /events/{id}/post:
+    post:
+      summary: Multi-platform publish trigger
+      description: Trigger event posting across PopBookings, TrustedHerd, and IS-Demos. Returns per-platform status via PlatformMapping.
+      operationId: postEventToPlatforms
+      tags:
+        - Events
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Publishing execution result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eventId:
+                    type: integer
+                  platformMappings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PlatformMapping'
+
+  /events/{id}/post-retry:
+    post:
+      summary: Retry platform post
+      description: Retries publishing an event for a specific platform without re-posting to successful platforms.
+      operationId: retryPostEvent
+      tags:
+        - Events
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: platform
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [isdemos, popbookings, trustedherd]
+      responses:
+        '200':
+          description: Retry result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformMapping'
+
+  /events/{id}/cancel:
+    post:
+      summary: Cancel event
+      description: Cancels an event and cascades cancellation to all associated position slots and bookings.
+      operationId: cancelEvent
+      tags:
+        - Events
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Event cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  eventId:
+                    type: integer
+                  cancelledPositions:
+                    type: integer
+
+  /events/{id}/positions:
+    get:
+      summary: List positions for event
+      operationId: listEventPositions
+      tags:
+        - Positions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of positions for event
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Position'
+
+  /positions/{id}:
+    patch:
+      summary: Update single position slot status
+      operationId: updatePositionStatus
+      tags:
+        - Positions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  example: Open
+                assignedTalentId:
+                  type: integer
+                  nullable: true
+      responses:
+        '200':
+          description: Position updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Position'
+
+  /events/{id}/applications:
+    get:
+      summary: Cross-platform applicant inbox feed for an event
+      operationId: listEventApplications
+      tags:
+        - Applications
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of applications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Application'
+
+  /applications/{id}:
+    patch:
+      summary: Transition application pipeline state
+      description: Moves an applicant through the candidate state machine engine with transaction and eventBus integration.
+      operationId: transitionApplicationState
+      tags:
+        - Applications
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  example: Reviewed
+                actor:
+                  type: string
+                  example: ops_user_1
+                note:
+                  type: string
+                  example: Qualification verified
+      responses:
+        '200':
+          description: State transition executed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  application:
+                    $ref: '#/components/schemas/Application'
+                  fromStatus:
+                    type: string
+                  toStatus:
+                    type: string
+                  actor:
+                    type: string
+                  note:
+                    type: string
+        '422':
+          description: Illegal state transition error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /talent:
+    get:
+      summary: Search internal talent database
+      operationId: searchTalent
+      tags:
+        - Talent
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: homeMarket
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Talent search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Talent'
+                  total:
+                    type: integer
+
+    post:
+      summary: Create talent record
+      description: Create talent profile with mandatory email and phone deduplication check.
+      operationId: createTalent
+      tags:
+        - Talent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - firstName
+                - lastName
+                - email
+                - phone
+              properties:
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                phone:
+                  type: string
+                homeMarket:
+                  type: string
+                notes:
+                  type: string
+      responses:
+        '201':
+          description: Talent record created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Talent'
+        '409':
+          description: Duplicate email or phone detected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /talent/{id}:
+    get:
+      summary: Talent profile details
+      operationId: getTalentById
+      tags:
+        - Talent
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Full talent detail with applications, bookings, and logs
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Talent'
+                  - type: object
+                    properties:
+                      applications:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Application'
+                      bookings:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Booking'
+
+  /talent/{id}/communications:
+    get:
+      summary: Get talent communication log history
+      operationId: getTalentCommunications
+      tags:
+        - Talent
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of communication logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CommunicationLog'
+
+  /bookings:
+    post:
+      summary: Assign talent to position slot
+      operationId: createBooking
+      tags:
+        - Bookings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - positionId
+                - talentId
+              properties:
+                positionId:
+                  type: integer
+                talentId:
+                  type: integer
+                externalBookingId:
+                  type: string
+      responses:
+        '201':
+          description: Booking created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+
+  /bookings/{id}:
+    patch:
+      summary: Update booking detail
+      operationId: updateBooking
+      tags:
+        - Bookings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                paymentAgreementAccepted:
+                  type: boolean
+      responses:
+        '200':
+          description: Booking updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+
+    delete:
+      summary: Unassign booking
+      description: Deletes booking record and automatically resets position slot status to 'Open'.
+      operationId: deleteBooking
+      tags:
+        - Bookings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Booking unassigned successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+  /notifications:
+    get:
+      summary: Priority queue feed for dashboard alerts
+      operationId: getNotifications
+      tags:
+        - Notifications
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [unresolved, resolved, all]
+            default: unresolved
+      responses:
+        '200':
+          description: List of dashboard notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Notification'
+
+  /notifications/{id}/resolve:
+    patch:
+      summary: Resolve notification alert
+      operationId: resolveNotification
+      tags:
+        - Notifications
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Notification resolved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+
+  /dashboard/summary:
+    get:
+      summary: Dashboard summary metrics
+      description: Returns today's overall staffing % and count of open unresolved alerts.
+      operationId: getDashboardSummary
+      tags:
+        - Dashboard & Metrics
+      responses:
+        '200':
+          description: Summary metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  todayEventsCount:
+                    type: integer
+                  staffingPercentage:
+                    type: number
+                  unresolvedNotificationsCount:
+                    type: integer
+                  criticalAlertsCount:
+                    type: integer
+
+  /metrics/{type}:
+    get:
+      summary: Reporting metrics
+      operationId: getMetricsByType
+      tags:
+        - Dashboard & Metrics
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [staffing, recruiting, operations]
+      responses:
+        '200':
+          description: Detailed management metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /platform-config/{platform}:
+    put:
+      summary: Store platform configuration credentials
+      operationId: updatePlatformConfig
+      tags:
+        - Platform Configurations
+      parameters:
+        - name: platform
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [isdemos, popbookings, trustedherd]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                apiKeyRef:
+                  type: string
+                baseUrl:
+                  type: string
+                scopes:
+                  type: object
+      responses:
+        '200':
+          description: Platform config updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformConfig'
+
+components:
+  responses:
+    ErrorResponse:
+      description: Standard Error Response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+
+  schemas:
+    ErrorEnvelope:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          example: Resource not found
+
+    TeamMember:
+      type: object
+      properties:
+        userId:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [Ops, Admin]
+
+    Event:
+      type: object
+      properties:
+        eventId:
+          type: integer
+        companyId:
+          type: integer
+        program:
+          type: string
+        siteNumber:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        zip:
+          type: string
+        eventDate:
+          type: string
+          format: date-time
+        startTime:
+          type: string
+        endTime:
+          type: string
+        payRate:
+          type: number
+        positionsRequired:
+          type: integer
+        requirements:
+          type: string
+          nullable: true
+        dressCode:
+          type: string
+          nullable: true
+        instructions:
+          type: string
+          nullable: true
+        jobCancelled:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Position:
+      type: object
+      properties:
+        positionId:
+          type: integer
+        eventId:
+          type: integer
+        slotNumber:
+          type: integer
+        status:
+          type: string
+          example: Open
+        assignedTalentId:
+          type: integer
+          nullable: true
+
+    Talent:
+      type: object
+      properties:
+        talentId:
+          type: integer
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        homeMarket:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          nullable: true
+        longitude:
+          type: number
+          nullable: true
+        source:
+          type: string
+          nullable: true
+        pbProfileUrl:
+          type: string
+          nullable: true
+        thProfileUrl:
+          type: string
+          nullable: true
+        isDemosStaffId:
+          type: integer
+          nullable: true
+        noShowCount:
+          type: integer
+        completedJobsCount:
+          type: integer
+        notes:
+          type: string
+          nullable: true
+
+    Application:
+      type: object
+      properties:
+        applicationId:
+          type: integer
+        eventId:
+          type: integer
+        positionId:
+          type: integer
+        talentId:
+          type: integer
+        platformSource:
+          type: string
+        externalApplicationId:
+          type: string
+          nullable: true
+        status:
+          type: string
+          example: Applied
+        appliedAt:
+          type: string
+          format: date-time
+        statusChangedAt:
+          type: string
+          format: date-time
+
+    Booking:
+      type: object
+      properties:
+        bookingId:
+          type: integer
+        positionId:
+          type: integer
+        talentId:
+          type: integer
+        isDemosShiftId:
+          type: integer
+          nullable: true
+        externalBookingId:
+          type: string
+          nullable: true
+        status:
+          type: string
+          example: Confirmed
+        paymentAgreementRequired:
+          type: boolean
+        paymentAgreementAccepted:
+          type: boolean
+        confirmedAt:
+          type: string
+          format: date-time
+
+    PlatformMapping:
+      type: object
+      properties:
+        id:
+          type: integer
+        eventId:
+          type: integer
+        platform:
+          type: string
+          enum: [isdemos, popbookings, trustedherd]
+        externalId:
+          type: string
+          nullable: true
+        postStatus:
+          type: string
+          enum: [Posted, Failed, Pending]
+        lastSyncedAt:
+          type: string
+          format: date-time
+
+    CommunicationLog:
+      type: object
+      properties:
+        logId:
+          type: integer
+        talentId:
+          type: integer
+        channel:
+          type: string
+        direction:
+          type: string
+        content:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        teamMember:
+          type: string
+          nullable: true
+
+    Notification:
+      type: object
+      properties:
+        notificationId:
+          type: integer
+        type:
+          type: string
+        severity:
+          type: string
+          enum: [Low, Medium, High, Critical]
+        eventId:
+          type: integer
+          nullable: true
+        talentId:
+          type: integer
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        assignedTeamMember:
+          type: string
+          nullable: true
+        resolved:
+          type: boolean
+        requiredAction:
+          type: string
+          nullable: true
+
+    PlatformConfig:
+      type: object
+      properties:
+        platform:
+          type: string
+          enum: [isdemos, popbookings, trustedherd]
+        apiKeyRef:
+          type: string
+          nullable: true
+        baseUrl:
+          type: string
+          nullable: true
+        scopes:
+          type: object
+          nullable: true
