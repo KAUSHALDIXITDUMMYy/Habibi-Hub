@@ -4,6 +4,7 @@
 
 import express from 'express';
 import { eventsRouter, positionsRouter } from '../src/routes/eventsRoutes.js';
+import { applicationsRouter } from '../src/routes/applicationsRoutes.js';
 import { loadDb, commit, nextId, now, resetDb } from './db.js';
 import { STATUSES, applyTransition } from './stateMachine.js';
 import { resolveNotification, createNotification } from './notifications.js';
@@ -13,6 +14,7 @@ export const api = express.Router();
 
 api.use('/events', eventsRouter);
 api.use('/positions', positionsRouter);
+api.use('/applications', applicationsRouter);
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const num = (v) => Number(v);

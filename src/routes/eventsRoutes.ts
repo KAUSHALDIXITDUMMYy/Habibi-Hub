@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { listEventApplicationsHandler } from './applicationsRoutes.js';
 import {
   listEvents,
   createEvent,
@@ -166,6 +167,9 @@ eventsRouter.get('/:id/positions', async (req, res, next) => {
     next(err);
   }
 });
+
+// GET /hub/v1/events/:id/applications
+eventsRouter.get('/:id/applications', listEventApplicationsHandler);
 
 export const positionsRouter = Router();
 
