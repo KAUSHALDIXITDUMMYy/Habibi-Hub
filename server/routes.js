@@ -3,12 +3,16 @@
 // (§4.3) so the operational loop can be exercised without external platforms.
 
 import express from 'express';
+import { eventsRouter, positionsRouter } from '../src/routes/eventsRoutes.js';
 import { loadDb, commit, nextId, now, resetDb } from './db.js';
 import { STATUSES, applyTransition } from './stateMachine.js';
 import { resolveNotification, createNotification } from './notifications.js';
 import { postJob, createBooking } from './integrations.js';
 
 export const api = express.Router();
+
+api.use('/events', eventsRouter);
+api.use('/positions', positionsRouter);
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const num = (v) => Number(v);
