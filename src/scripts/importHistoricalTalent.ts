@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
-import fs from 'node:fs';
-import path from 'node:path';
+import fs from 'fs';
+import path from 'path';
 
 const prisma = new PrismaClient();
 
@@ -102,7 +102,7 @@ export async function importHistoricalTalent(filePath?: string) {
 
 // Run CLI script if invoked directly
 if (process.argv[1]?.endsWith('importHistoricalTalent.ts') || process.argv[1]?.endsWith('importHistoricalTalent.js')) {
-  const customFile = process.argv.find(arg => arg.startsWith('--file='))?.split('=')[1];
+  const customFile = process.argv.find((arg: string) => arg.startsWith('--file='))?.split('=')[1];
   importHistoricalTalent(customFile).catch(err => {
     console.error('Import failed:', err);
     process.exit(1);
