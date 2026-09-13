@@ -6,6 +6,7 @@ import express from 'express';
 import { eventsRouter, positionsRouter } from '../src/routes/eventsRoutes.js';
 import { applicationsRouter } from '../src/routes/applicationsRoutes.js';
 import { talentRouter } from '../src/routes/talentRoutes.js';
+import { bookingsRouter } from '../src/routes/bookingsRoutes.js';
 import { loadDb, commit, nextId, now, resetDb } from './db.js';
 import { STATUSES, applyTransition } from './stateMachine.js';
 import { resolveNotification, createNotification } from './notifications.js';
@@ -17,6 +18,7 @@ api.use('/events', eventsRouter);
 api.use('/positions', positionsRouter);
 api.use('/applications', applicationsRouter);
 api.use('/talent', talentRouter);
+api.use('/bookings', bookingsRouter);
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const num = (v) => Number(v);
